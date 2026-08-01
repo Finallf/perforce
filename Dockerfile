@@ -37,8 +37,6 @@ ENV P4ROOT=/p4/root \
     P4PORT=1666 \
     P4USER=admin \
     P4CHARSET=utf8 \
-    UID=1000 \
-    GID=0 \
     TZ=UTC \
     DEBIAN_FRONTEND=noninteractive
 
@@ -56,14 +54,14 @@ COPY --from=builder /perforce/p4d /usr/local/bin/p4d
 COPY --from=builder /perforce/p4  /usr/local/bin/p4
 COPY app/ /app/
 
-# Prepare data dir + permissions (non-root user, group 0 writable):
+# Prepare the data dir and make the entrypoint executable.
+# The container runs as root so p4d can write to the mounted data volume
+# regardless of the host folder ownership.
 RUN set -eux \
 &&  mkdir -p /p4 \
-&&  chmod +x /app/entrypoint.sh \
-&&  chmod -R g+rwX /p4 /app
+&&  chmod +x /app/entrypoint.sh
 
 WORKDIR /p4
-USER $UID:$GID
 
 # Healthcheck: the server answers 'p4 info' once it is up.
 HEALTHCHECK --interval=1m --timeout=15s --start-period=45s --retries=3 \

@@ -39,8 +39,8 @@ Set these in the `.env` / Portainer stack env vars:
 | `PASS`   | `YourStrongPass123`  | `admin` super-user password (min 8, upper + lower + digit) |
 | `TZ`     | `America/Sao_Paulo`  | Timezone |
 
-> ⚠️ The `${SSD}/perforce` host folder must be **writable by UID 1000 / GID 0**
-> (same pattern as the other stacks). The server data lives in `${SSD}/perforce/root`.
+> The container runs as **root**, so it writes to the mounted `${SSD}/perforce`
+> folder regardless of host ownership. The server data lives in `${SSD}/perforce/root`.
 
 > ⚠️ The password and options (unicode, security, case) are written on the
 > **first run**. Changing them afterwards requires recreating from scratch

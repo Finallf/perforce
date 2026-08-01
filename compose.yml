@@ -3,8 +3,8 @@
 #   PASS=YourStrongPassword     -> Perforce 'admin' super-user password
 #   TZ=America/Sao_Paulo
 #
-# NOTE: the ${SSD}/perforce folder on the host must be writable by the
-# container user (UID 1000 / GID 0), same as the other stacks.
+# NOTE: the container runs as root, so it writes to ${SSD}/perforce
+# regardless of the host folder ownership.
 networks:
   perforce:
     external: false
@@ -15,7 +15,6 @@ services:
     image: finallf/perforce:latest
     container_name: perforce
     hostname: perforce
-    user: 1000:0
     environment:
       - TZ=${TZ}
       - P4USER=admin
