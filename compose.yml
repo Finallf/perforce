@@ -1,0 +1,35 @@
+# Variables (set them in the .env / Portainer stack env vars):
+#   SSD=/mnt/ssd/Tools          -> base folder for the data (SSD dataset)
+#   PASS=YourStrongPassword     -> Perforce 'admin' super-user password
+#   TZ=America/Sao_Paulo
+#
+# NOTE: the ${SSD}/perforce folder on the host must be writable by the
+# container user (UID 1000 / GID 0), same as the other stacks.
+networks:
+  perforce:
+    external: false
+    name: perforce
+
+services:
+  perforce:
+    image: finallf/perforce:latest
+    container_name: perforce
+    hostname: perforce
+    user: 1000:0
+    environment:
+      - TZ=${TZ}
+      - P4USER=admin
+      - P4PORT=1666
+      - P4PASSWD=${PASS}
+      - P4CHARSET=utf8
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+      - ${SSD}/perforce:/p4
+    ports:
+      - "1666:1666"
+    networks:
+      - perforce
+    stop_grace_period: 30s
+    restart: unless-stopped

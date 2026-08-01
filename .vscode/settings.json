@@ -1,0 +1,33 @@
+{
+  // ============================================================
+  // EDITOR — Auto-format OFF (safety lock, same as the theme)
+  // ============================================================
+  "editor.formatOnSave": false,
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+
+  // ============================================================
+  // LINE ENDINGS — LF (CRITICAL: .sh scripts with CRLF break in the container)
+  // ============================================================
+  "files.eol": "\n",
+
+  // ============================================================
+  // File associations
+  // ============================================================
+  "files.associations": {
+    "Dockerfile*": "dockerfile",
+    "*.yml": "yaml",
+    "*.yaml": "yaml",
+    "compose.yml": "yaml",
+    "entrypoint.sh": "shellscript",
+    "deploy.sh": "shellscript"
+  },
+
+  // ============================================================
+  // SEARCH — global search exclusions
+  // ============================================================
+  "search.exclude": {
+    "**/.git": true,
+    "**/node_modules": true
+  }
+}

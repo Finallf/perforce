@@ -1,0 +1,44 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: [master, beta]
+  pull_request:
+    branches: [master, beta]
+
+jobs:
+  lint:
+    name: Lint (Dockerfile + Shell)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Fail only on real ERRORS -- warnings/style (apt pinning, label keys, ...)
+      # stay advisory and never break the build.
+      - name: Hadolint (Dockerfile)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: error
+
+      - name: ShellCheck (scripts)
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: error
+
+  build:
+    name: Build image (no push)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false

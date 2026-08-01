@@ -1,0 +1,78 @@
+name: Release & Publish
+
+on:
+  push:
+    branches:
+      - master
+      - beta
+    # The release commit (chore(release): ...) touches ONLY the CHANGELOG.md
+    # (a @semantic-release/git asset). Ignoring it avoids a skipped/grey run.
+    paths-ignore:
+      - 'CHANGELOG.md'
+  # Allows triggering the release manually from the Actions tab (useful when a
+  # force-push/amend confuses the paths filter and the push trigger is skipped).
+  workflow_dispatch:
+
+# Resolves Node 24 warnings across the JS actions.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    # Never run semantic-release on top of its own release commit
+    # (semantic-release pushes with GH_PAT, which triggers this workflow).
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: |
+            @semantic-release/changelog
+            @semantic-release/git
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+
+      # Moving tag: master -> latest ; beta -> beta
+      - name: Compute moving tag
+        if: steps.semantic.outputs.new_release_published == 'true'
+        id: movingtag
+        run: |
+          if [ "${{ github.ref_name }}" = "master" ]; then
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.semantic.outputs.new_release_published == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.semantic.outputs.new_release_published == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        if: steps.semantic.outputs.new_release_published == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            finallf/perforce:${{ steps.semantic.outputs.new_release_version }}
+            finallf/perforce:${{ steps.movingtag.outputs.tag }}
