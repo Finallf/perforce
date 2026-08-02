@@ -53,6 +53,13 @@ if [ ! -f "${P4ROOT}/db.domain" ]; then
     log "Setting the server ID to '${P4SERVERID}'..."
     p4d -r "${P4ROOT}" -xD "${P4SERVERID}"
 
+    # 1c) Bootstrap at security level 0 (offline). Modern p4d (2026.x) requires
+    #     authentication by default, which blocks creating the very first
+    #     super-user (no password can exist yet). We start at level 0 so the
+    #     user/password can be created, then raise it to 3 at the end.
+    log "Setting bootstrap security level to 0 (offline)..."
+    p4d -r "${P4ROOT}" "-cset security=0"
+
     # 2) Start a temporary p4d (background) only to configure it
     log "Starting a temporary p4d for configuration..."
     p4d -r "${P4ROOT}" -p "${P4PORT}" &
