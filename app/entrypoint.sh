@@ -6,8 +6,8 @@
 #       - creates the super-user and sets its password
 #       - enables Unicode mode
 #       - keeps case-sensitivity (the default)
-#       - sets the port and root
-#     then logs in, applies the Unreal typemap and raises the security level.
+#     then logs in, applies the Unreal typemap, raises the security level,
+#     registers the server in the topology and sets the server ID.
 #   * Subsequent runs: just start p4d in the foreground (PID 1).
 #
 set -euo pipefail
@@ -35,9 +35,12 @@ mkdir -p "${P4ROOT}"
 # --- First-run bootstrap (official installer) --------------------------------
 if [ ! -f "${P4ROOT}/db.domain" ]; then
     log "First run -- bootstrapping with the official configure-p4d.sh..."
+    # configure-p4d.sh treats -r as the BASE directory and creates the real
+    # P4ROOT as <base>/root. So we pass the PARENT of P4ROOT to land the db
+    # exactly at ${P4ROOT} (and match the 'exec p4d' below).
     /opt/perforce/sbin/configure-p4d.sh "${P4NAME}" -n \
         -p "${P4PORT}" \
-        -r "${P4ROOT}" \
+        -r "$(dirname "${P4ROOT}")" \
         -u "${P4USER}" \
         -P "${ADMIN_PW}" \
         --unicode
@@ -129,9 +132,24 @@ TYPEMAP
     ${P4} configure set run.users.authorize=1
     ${P4} configure set dm.user.noautocreate=2
 
+    log "Registering the server spec in the topology..."
+    ${P4} server -i <<SERVERSPEC
+ServerID: ${P4NAME}
+Type: server
+Name: ${P4NAME}
+Services: standard
+Description:
+	Standalone Helix Core server (Unreal Engine ready).
+SERVERSPEC
+
     log "Stopping the bootstrap service..."
     p4dctl stop "${P4NAME}" >/dev/null 2>&1 || ${P4} admin stop >/dev/null 2>&1 || true
     sleep 2
+
+    # Set the server ID (offline) so it matches the spec above and the
+    # topology registration is clean (no db.topology warning on start).
+    log "Setting the server ID to '${P4NAME}' (offline)..."
+    p4d -r "${P4ROOT}" -xD "${P4NAME}"
 else
     log "Server already initialized -- starting normally."
 fi
