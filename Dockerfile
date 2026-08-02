@@ -1,62 +1,44 @@
 # syntax=docker/dockerfile:1
 
-# STAGE 1: The Builder (temporary environment)
-# Downloads the official standalone Perforce binaries (p4d + p4).
-# Perforce's apt repo only supports Ubuntu; the direct binaries run on any
-# modern Linux, so we keep the Debian slim base (stack standard).
-FROM debian:13-slim AS builder
-
-# Helix Core version (2026.1). IMPORTANT: use a release that ships the standalone
-# Linux binaries (p4d/p4) on the public FTP -- the majors (r26.1, r25.2) do, but
-# some point releases are partial (r26.2 tools-only, r26.4 Mac/Win only).
-# Check before bumping:
-#   https://ftp.perforce.com/perforce/<release>/bin.linux26x86_64/
-ARG P4_RELEASE=r26.1
-ARG P4_ARCH=bin.linux26x86_64
-ARG P4_BASEURL=https://ftp.perforce.com/perforce
-
-RUN set -eux \
-&&  apt-get -qq update \
-&&  apt-get -qq install --no-install-recommends \
-    ca-certificates \
-    curl \
-&&  mkdir -p /perforce \
-&&  curl -sSfL "${P4_BASEURL}/${P4_RELEASE}/${P4_ARCH}/p4d" -o /perforce/p4d \
-&&  curl -sSfL "${P4_BASEURL}/${P4_RELEASE}/${P4_ARCH}/p4"  -o /perforce/p4  \
-&&  chmod +x /perforce/p4d /perforce/p4
-
-# STAGE 2: Final image (Debian 13 Trixie Slim)
+# Helix Core Server (p4d) on Debian, installed the official way:
+# the Perforce apt repository + the p4-server package, then bootstrapped with
+# the official configure-p4d.sh (see app/entrypoint.sh).
+#
+# The Perforce apt repo targets Ubuntu; we use the 'noble' (24.04) codename on
+# Debian -- the packages are plain ELF x86_64 and install on a recent Debian.
 FROM debian:13-slim
 
 LABEL Maintainer="Finallf <finallf2@gmail.com>"
 LABEL Homepage="reloaded.com.br"
-LABEL Description="Perforce Helix Core (p4d) server, Unreal Engine ready, on Debian slim."
+LABEL Description="Perforce Helix Core (p4d) server, Unreal Engine ready, on Debian."
 
-# Environment settings:
 ENV P4ROOT=/p4/root \
     P4PORT=1666 \
     P4USER=admin \
+    P4NAME=perforce \
     P4CHARSET=utf8 \
     TZ=UTC \
     DEBIAN_FRONTEND=noninteractive
 
-# Install runtime dependencies (p4d is largely self-contained; needs certs + tz):
+# Install the official Helix Core Server package (p4-server) from Perforce.
 RUN set -eux \
 &&  apt-get -qq update \
 &&  apt-get -qq install --no-install-recommends \
     ca-certificates \
+    gnupg \
     tzdata \
+    wget \
+&&  wget -qO - https://package.perforce.com/perforce.pubkey \
+      | gpg --dearmor > /usr/share/keyrings/perforce.gpg \
+&&  echo "deb [signed-by=/usr/share/keyrings/perforce.gpg] https://package.perforce.com/apt/ubuntu noble release" \
+      > /etc/apt/sources.list.d/perforce.list \
+&&  apt-get -qq update \
+&&  apt-get -qq install --no-install-recommends p4-server \
 &&  apt-get -qq clean \
 &&  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* /var/tmp/*
 
-# Copy the Perforce binaries and the bootstrap entrypoint:
-COPY --from=builder /perforce/p4d /usr/local/bin/p4d
-COPY --from=builder /perforce/p4  /usr/local/bin/p4
 COPY app/ /app/
 
-# Prepare the data dir and make the entrypoint executable.
-# The container runs as root so p4d can write to the mounted data volume
-# regardless of the host folder ownership.
 RUN set -eux \
 &&  mkdir -p /p4 \
 &&  chmod +x /app/entrypoint.sh

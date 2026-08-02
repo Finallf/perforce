@@ -8,12 +8,14 @@ exclusive **file locking**).
 Built from the **official Perforce binaries** (fetched from the public FTP), on
 top of `debian:13-slim` in a multi-stage build.
 
-## Why standalone binaries (and not apt)?
+## Install method
 
-Perforce's apt repository only targets **Ubuntu**. To keep the stack's **Debian**
-base, the image downloads the official `p4d`/`p4` binaries directly from
-`https://ftp.perforce.com/perforce/<release>/bin.linux26x86_64/` — they run on any
-modern Linux, and the pinned URL keeps the build reproducible and traceable.
+Installed the official way — the Perforce apt repository + the **`p4-server`**
+package — and bootstrapped with the official **`configure-p4d.sh`** (which
+creates the super-user, sets the password, enables Unicode and keeps
+case-sensitivity). The apt repo targets Ubuntu, so the `noble` (24.04) codename
+is used on Debian; the packages are plain ELF x86_64 and install on a recent
+Debian.
 
 ## Build & deploy
 
@@ -26,8 +28,8 @@ Same flow as the other stacks (build → tag `latest` → push to Docker Hub):
 Releases are also automated on GitHub (semantic-release → CHANGELOG + GitHub
 release + Docker Hub push). See `CONTRIBUTING.md` for the commit convention.
 
-To change the Helix Core version, adjust `ARG P4_RELEASE` in the `Dockerfile`
-(release list: <https://ftp.perforce.com/perforce/>).
+The Helix Core version tracks whatever the Perforce apt repo currently ships for
+the `p4-server` package.
 
 ## Configuration
 
