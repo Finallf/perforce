@@ -2,17 +2,23 @@
 #
 # Perforce Helix Core (p4d) entrypoint -- Unreal Engine ready.
 #
+# The container starts as root only to align the 'perforce' user with the host
+# (PUID/PGID) and to run the one-time bootstrap; the p4d server itself then runs
+# as the unprivileged 'perforce' user, so the data volume stays owned by a user
+# you control on the host.
+#
 #   * First run: bootstraps the server with the official configure-p4d.sh
 #       - creates the super-user and sets its password
-#       - enables Unicode mode
-#       - keeps case-sensitivity (the default)
-#     then logs in, applies the Unreal typemap, raises the security level,
-#     registers the server in the topology and sets the server ID.
+#       - enables Unicode mode, keeps case-sensitivity (the default)
+#     then logs in, applies the Unreal typemap, raises the security level and
+#     registers the server in the topology.
 #   * Subsequent runs: just start p4d in the foreground (PID 1).
 #
 set -euo pipefail
 
 # --- Config (overridable via environment) ------------------------------------
+: "${PUID:=1000}"
+: "${PGID:=1000}"
 : "${P4ROOT:=/p4/root}"
 : "${P4PORT:=1666}"
 : "${P4USER:=admin}"
@@ -25,19 +31,27 @@ set -euo pipefail
 ADMIN_PW="${P4PASSWD}"
 unset P4PASSWD
 
-# p4 client helper pointing at the local server
 P4="p4 -p localhost:${P4PORT} -u ${P4USER} -C ${P4CHARSET}"
-
 log() { echo ">> [entrypoint] $*"; }
 
+# --- Align the 'perforce' user/group with the host --------------------------
+# The p4-server package creates 'perforce' with an internal UID/GID; remap it to
+# PUID/PGID so the mounted data volume is owned by a user you control (and so
+# 'perforce' inside the container == e.g. 'umedia' on the host).
+log "Aligning the perforce user to ${PUID}:${PGID}..."
+groupmod -o -g "${PGID}" perforce
+usermod  -o -u "${PUID}" -g "${PGID}" perforce
+chown -R perforce:perforce /opt/perforce /etc/perforce 2>/dev/null || true
+
 mkdir -p "${P4ROOT}"
+chown perforce:perforce /p4 "${P4ROOT}" 2>/dev/null || true
 
 # --- First-run bootstrap (official installer) --------------------------------
 if [ ! -f "${P4ROOT}/db.domain" ]; then
     log "First run -- bootstrapping with the official configure-p4d.sh..."
     # configure-p4d.sh treats -r as the BASE directory and creates the real
-    # P4ROOT as <base>/root. So we pass the PARENT of P4ROOT to land the db
-    # exactly at ${P4ROOT} (and match the 'exec p4d' below).
+    # P4ROOT as <base>/root. Passing the PARENT of P4ROOT lands the db exactly
+    # at ${P4ROOT} (matching the 'p4d' start below).
     /opt/perforce/sbin/configure-p4d.sh "${P4NAME}" -n \
         -p "${P4PORT}" \
         -r "$(dirname "${P4ROOT}")" \
@@ -145,10 +159,14 @@ SERVERSPEC
     log "Stopping the bootstrap service..."
     p4dctl stop "${P4NAME}" >/dev/null 2>&1 || ${P4} admin stop >/dev/null 2>&1 || true
     sleep 2
+
+    # Make sure everything the bootstrap created is owned by the host user.
+    chown -R perforce:perforce "$(dirname "${P4ROOT}")"
 else
     log "Server already initialized -- starting normally."
 fi
 
-# --- Start p4d in the foreground (PID 1) -------------------------------------
-log "Starting p4d on port ${P4PORT} (root=${P4ROOT})..."
-exec p4d -r "${P4ROOT}" -p "${P4PORT}"
+# --- Start p4d as the unprivileged 'perforce' user (PID 1) -------------------
+log "Starting p4d as perforce (${PUID}:${PGID}) on port ${P4PORT} (root=${P4ROOT})..."
+exec setpriv --reuid="${PUID}" --regid="${PGID}" --clear-groups \
+    p4d -r "${P4ROOT}" -p "${P4PORT}"

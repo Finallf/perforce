@@ -3,8 +3,8 @@
 #   PASS=YourStrongPassword     -> Perforce 'admin' super-user password
 #   TZ=America/Sao_Paulo
 #
-# NOTE: the container runs as root, so it writes to ${SSD}/perforce
-# regardless of the host folder ownership.
+# NOTE: p4d runs as PUID:PGID (default 1000:1000). The ${SSD}/perforce folder
+# on the host ends up owned by that UID/GID -- set PUID/PGID to your host user.
 networks:
   perforce:
     external: false
@@ -17,6 +17,8 @@ services:
     hostname: perforce
     environment:
       - TZ=${TZ}
+      - PUID=1000
+      - PGID=1000
       - P4USER=admin
       - P4PORT=1666
       - P4PASSWD=${PASS}

@@ -12,21 +12,29 @@ LABEL Maintainer="Finallf <finallf2@gmail.com>"
 LABEL Homepage="reloaded.com.br"
 LABEL Description="Perforce Helix Core (p4d) server, Unreal Engine ready, on Debian."
 
+# PUID/PGID: the host UID/GID that p4d runs as and that owns the data volume,
+# so you can manage the mounted folder from the host. Override to match your user.
 ENV P4ROOT=/p4/root \
     P4PORT=1666 \
     P4USER=admin \
     P4NAME=perforce \
     P4CHARSET=utf8 \
+    PUID=1000 \
+    PGID=1000 \
     TZ=UTC \
     DEBIAN_FRONTEND=noninteractive
 
-# Install the official Helix Core Server package (p4-server) from Perforce.
+# Install the official Helix Core Server package (p4-server) from Perforce, plus
+# the small tools the entrypoint needs (usermod/groupmod = passwd, setpriv =
+# util-linux).
 RUN set -eux \
 &&  apt-get -qq update \
 &&  apt-get -qq install --no-install-recommends \
     ca-certificates \
     gnupg \
+    passwd \
     tzdata \
+    util-linux \
     wget \
 &&  wget -qO - https://package.perforce.com/perforce.pubkey \
       | gpg --dearmor > /usr/share/keyrings/perforce.gpg \
