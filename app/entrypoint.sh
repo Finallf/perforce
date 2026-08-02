@@ -20,6 +20,14 @@ set -euo pipefail
 : "${P4CHARSET:=utf8}"
 : "${P4PASSWD:?ERROR: set the P4PASSWD environment variable (admin super-user password)}"
 
+# Keep the password in a local variable and remove it from the environment.
+# Otherwise the p4 CLIENT tries to authenticate with P4PASSWD on every command,
+# which fails during bootstrap (before the user/password exist) with
+# "Perforce password (P4PASSWD) invalid or unset". A ticket from 'p4 login'
+# authenticates the remaining steps instead.
+ADMIN_PW="${P4PASSWD}"
+unset P4PASSWD
+
 export P4ROOT P4PORT P4USER P4CHARSET
 
 # p4 client helper pointing at the local server
@@ -58,10 +66,10 @@ USERSPEC
 
     # 5) Set the super-user password (server still at low security)
     log "Setting the super-user password..."
-    ${P4} passwd -P "${P4PASSWD}" "${P4USER}"
+    ${P4} passwd -P "${ADMIN_PW}" "${P4USER}"
 
     # 6) Log in (creates the ticket -- required after raising security)
-    echo "${P4PASSWD}" | ${P4} login
+    echo "${ADMIN_PW}" | ${P4} login
 
     # 7) Security (level 3 / high) + hardening
     log "Applying security level 3 and hardening..."
