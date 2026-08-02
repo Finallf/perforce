@@ -18,6 +18,7 @@ set -euo pipefail
 : "${P4PORT:=1666}"
 : "${P4USER:=admin}"
 : "${P4CHARSET:=utf8}"
+: "${P4SERVERID:=perforce}"
 : "${P4PASSWD:?ERROR: set the P4PASSWD environment variable (admin super-user password)}"
 
 # Keep the password in a local variable and remove it from the environment.
@@ -45,6 +46,13 @@ if [ ! -f "${P4ROOT}/db.domain" ]; then
     log "Enabling Unicode mode..."
     p4d -r "${P4ROOT}" -xi
 
+    # 1b) Set the server ID (offline). Without it p4d logs a
+    #     "topologyRegistration / No entries made in db.topology" warning on
+    #     every start. Together with the server spec created below, the server
+    #     registers itself cleanly in the topology.
+    log "Setting the server ID to '${P4SERVERID}'..."
+    p4d -r "${P4ROOT}" -xD "${P4SERVERID}"
+
     # 2) Start a temporary p4d (background) only to configure it
     log "Starting a temporary p4d for configuration..."
     p4d -r "${P4ROOT}" -p "${P4PORT}" &
@@ -70,6 +78,19 @@ USERSPEC
 
     # 6) Log in (creates the ticket -- required after raising security)
     echo "${ADMIN_PW}" | ${P4} login
+
+    # 6b) Register the server spec so the server appears in the topology
+    #     (pairs with the server ID set above and clears the db.topology
+    #     warning on every start).
+    log "Creating the server spec '${P4SERVERID}'..."
+    ${P4} server -i <<SERVERSPEC
+ServerID: ${P4SERVERID}
+Type: server
+Name: ${P4SERVERID}
+Services: standard
+Description:
+	Standalone Helix Core server (Unreal Engine ready).
+SERVERSPEC
 
     # 7) Security (level 3 / high) + hardening
     log "Applying security level 3 and hardening..."
