@@ -59,16 +59,20 @@ Port **1666** (Perforce protocol — no web UI; use **P4V**).
 
 ## Connect (P4V / UE)
 
-- **Server (P4PORT):** `<HOST_IP>:1666`  *(no `ssl:` — plaintext on the LAN)*
+- **Server (P4PORT):** `<HOST_IP>:1666` — or `ssl:<HOST_IP>:1666` when `P4SSL=true`
 - **User:** `admin`  ·  **Charset:** `unicode (utf8)`
 - Password: the value set in `PASS`
 
 In Unreal Engine: **Revision Control → Perforce**, same details.
 
-## Security / remote access
+## SSL / public exposure
 
-The server runs in **plaintext** — best kept behind a **VPN** (e.g. WireGuard)
-for remote collaborators, instead of exposing port 1666 to the internet.
+By default the server runs in plaintext (fine on a trusted LAN or VPN). To
+expose it directly on the internet, set **`P4SSL=true`**: the entrypoint
+generates a self-signed certificate in `P4SSLDIR` (default `/p4/ssl`, persisted
+in the volume) and serves on `ssl:1666`. Clients then connect with
+**`ssl:<host>:1666`** and accept the certificate fingerprint on first use
+(P4V prompts; the CLI uses `p4 trust -y`).
 
 ## Typemap
 

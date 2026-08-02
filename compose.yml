@@ -23,6 +23,9 @@ services:
       - P4PORT=1666
       - P4PASSWD=${PASS}
       - P4CHARSET=utf8
+      # Set P4SSL=true for a public / internet-exposed server (encrypts traffic;
+      # clients then connect with ssl:<host>:1666).
+      - P4SSL=false
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro

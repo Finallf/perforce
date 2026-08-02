@@ -19,6 +19,8 @@ ENV P4ROOT=/p4/root \
     P4USER=admin \
     P4NAME=perforce \
     P4CHARSET=utf8 \
+    P4SSL=false \
+    P4SSLDIR=/p4/ssl \
     PUID=1000 \
     PGID=1000 \
     TZ=UTC \
@@ -49,13 +51,13 @@ COPY app/ /app/
 
 RUN set -eux \
 &&  mkdir -p /p4 \
-&&  chmod +x /app/entrypoint.sh
+&&  chmod +x /app/entrypoint.sh /app/healthcheck.sh
 
 WORKDIR /p4
 
-# Healthcheck: the server answers 'p4 info' once it is up.
+# Healthcheck: the server answers 'p4 info' once it is up (SSL-aware).
 HEALTHCHECK --interval=1m --timeout=15s --start-period=45s --retries=3 \
-    CMD p4 -p localhost:1666 info >/dev/null 2>&1 || exit 1
+    CMD /app/healthcheck.sh || exit 1
 
 EXPOSE 1666
 ENTRYPOINT ["/app/entrypoint.sh"]

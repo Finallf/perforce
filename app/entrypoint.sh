@@ -24,6 +24,8 @@ set -euo pipefail
 : "${P4USER:=admin}"
 : "${P4NAME:=perforce}"
 : "${P4CHARSET:=utf8}"
+: "${P4SSL:=false}"
+: "${P4SSLDIR:=/p4/ssl}"
 : "${P4PASSWD:?ERROR: set the P4PASSWD environment variable (admin super-user password)}"
 
 # Keep the password out of the environment; the p4 client authenticates via the
@@ -166,7 +168,25 @@ else
     log "Server already initialized -- starting normally."
 fi
 
+# --- Optional SSL: serve on ssl:PORT with a self-signed certificate ----------
+# The bootstrap above stays plaintext (localhost only, inside the container);
+# only the exposed server switches to SSL. Clients then connect with
+# 'ssl:<host>:PORT' and accept the fingerprint once ('p4 trust').
+P4D_PORT_SPEC="${P4PORT}"
+if [ "${P4SSL}" = "true" ]; then
+    export P4SSLDIR
+    mkdir -p "${P4SSLDIR}"
+    chown perforce:perforce "${P4SSLDIR}"
+    chmod 700 "${P4SSLDIR}"
+    if [ ! -f "${P4SSLDIR}/certificate.txt" ]; then
+        log "Generating the self-signed SSL certificate in ${P4SSLDIR}..."
+        setpriv --reuid="${PUID}" --regid="${PGID}" --clear-groups p4d -Gc
+    fi
+    P4D_PORT_SPEC="ssl:${P4PORT}"
+    log "SSL enabled -- clients connect with 'ssl:<host>:${P4PORT}'."
+fi
+
 # --- Start p4d as the unprivileged 'perforce' user (PID 1) -------------------
-log "Starting p4d as perforce (${PUID}:${PGID}) on port ${P4PORT} (root=${P4ROOT})..."
+log "Starting p4d as perforce (${PUID}:${PGID}) on '${P4D_PORT_SPEC}' (root=${P4ROOT})..."
 exec setpriv --reuid="${PUID}" --regid="${PGID}" --clear-groups \
-    p4d -r "${P4ROOT}" -p "${P4PORT}"
+    p4d -r "${P4ROOT}" -p "${P4D_PORT_SPEC}"
