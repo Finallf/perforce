@@ -145,11 +145,6 @@ SERVERSPEC
     log "Stopping the bootstrap service..."
     p4dctl stop "${P4NAME}" >/dev/null 2>&1 || ${P4} admin stop >/dev/null 2>&1 || true
     sleep 2
-
-    # Set the server ID (offline) so it matches the spec above and the
-    # topology registration is clean (no db.topology warning on start).
-    log "Setting the server ID to '${P4NAME}' (offline)..."
-    p4d -r "${P4ROOT}" -xD "${P4NAME}"
 else
     log "Server already initialized -- starting normally."
 fi
